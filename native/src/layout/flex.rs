@@ -16,10 +16,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use crate::Element;
-
 use crate::layout::{Limits, Node};
-use crate::{Alignment, Padding, Point, Size};
+use crate::{Alignment, Length, Padding, Point, Size};
 
 /// The main axis of a flex layout.
 #[derive(Debug)]
@@ -63,41 +61,53 @@ pub enum LayoutMode {
     PerformLayout,
 }
 
+/// Proxy which items are accessed in order to enable caching
+pub trait ItemProxy<R> {
+    /// Get the item's width
+    fn width(&mut self, item_index: usize) -> Length;
+    /// Get the item's height
+    fn height(&mut self, item_index: usize) -> Length;
+    /// Measure the item's content
+    fn measure(&mut self, item_index: usize, limits: &Limits) -> Size;
+    /// Perform full recursive layout on the item
+    fn layout(&mut self, item_index: usize, limits: &Limits) -> Node;
+}
+
 /// Computes the flex layout with the given axis and limits, applying spacing,
 /// padding and alignment to the items as needed.
 ///
 /// It returns a new layout [`Node`].
-pub fn resolve<Message, Renderer>(
+pub fn resolve<Renderer>(
     axis: Axis,
-    renderer: &Renderer,
     limits: &Limits,
     padding: Padding,
     spacing: f32,
     align_items: Alignment,
-    items: &mut [Element<'_, Message, Renderer>],
+    item_count: usize,
+    mut item_proxy: impl ItemProxy<Renderer>,
     mode: LayoutMode,
 ) -> Node
 where
     Renderer: crate::Renderer,
 {
     let limits = limits.pad(padding);
-    let total_spacing = spacing * items.len().saturating_sub(1) as f32;
+    let total_spacing = spacing * item_count.saturating_sub(1) as f32;
     let max_cross = axis.cross(limits.max());
 
     let mut fill_sum = 0;
     let mut cross = axis.cross(limits.min()).max(axis.cross(limits.fill()));
     let mut available = axis.main(limits.max()) - total_spacing;
 
-    let mut nodes: Vec<Node> = Vec::with_capacity(items.len());
-    nodes.resize(items.len(), Node::default());
+    let mut nodes: Vec<Node> = Vec::with_capacity(item_count);
+    nodes.resize(item_count, Node::default());
 
     if align_items == Alignment::Fill {
         let mut fill_cross = axis.cross(limits.min());
 
-        items.iter_mut().for_each(|child| {
+        (0..item_count).for_each(|i| {
             let cross_fill_factor = match axis {
-                Axis::Horizontal => child.as_widget().height(),
-                Axis::Vertical => child.as_widget().width(),
+                Axis::Horizontal => item_proxy.height(i),
+                Axis::Vertical => item_proxy.width(i),
             }
             .fill_factor();
 
@@ -107,8 +117,7 @@ where
                 let child_limits =
                     Limits::new(Size::ZERO, Size::new(max_width, max_height));
 
-                let size =
-                    child.as_widget_mut().measure(renderer, &child_limits);
+                let size = item_proxy.measure(i, &child_limits);
 
                 fill_cross = fill_cross.max(axis.cross(size));
             }
@@ -117,10 +126,10 @@ where
         cross = fill_cross;
     }
 
-    for (i, child) in items.iter_mut().enumerate() {
+    for i in 0..item_count {
         let fill_factor = match axis {
-            Axis::Horizontal => child.as_widget().width(),
-            Axis::Vertical => child.as_widget().height(),
+            Axis::Horizontal => item_proxy.width(i),
+            Axis::Vertical => item_proxy.height(i),
         }
         .fill_factor();
 
@@ -144,14 +153,12 @@ where
 
             let size = match mode {
                 LayoutMode::MeasureSize => {
-                    let size =
-                        child.as_widget_mut().measure(renderer, &child_limits);
+                    let size = item_proxy.measure(i, &child_limits);
                     nodes[i] = Node::new(size);
                     size
                 }
                 LayoutMode::PerformLayout => {
-                    let layout =
-                        child.as_widget_mut().layout(renderer, &child_limits);
+                    let layout = item_proxy.layout(i, &child_limits);
                     let size = layout.size();
                     nodes[i] = layout;
                     size
@@ -170,10 +177,10 @@ where
 
     let remaining = available.max(0.0);
 
-    for (i, child) in items.iter_mut().enumerate() {
+    for i in 0..item_count {
         let fill_factor = match axis {
-            Axis::Horizontal => child.as_widget().width(),
-            Axis::Vertical => child.as_widget().height(),
+            Axis::Horizontal => item_proxy.width(i),
+            Axis::Vertical => item_proxy.height(i),
         }
         .fill_factor();
 
@@ -204,14 +211,12 @@ where
 
             let size = match mode {
                 LayoutMode::MeasureSize => {
-                    let size =
-                        child.as_widget_mut().measure(renderer, &child_limits);
+                    let size = item_proxy.measure(i, &child_limits);
                     nodes[i] = Node::new(size);
                     size
                 }
                 LayoutMode::PerformLayout => {
-                    let layout =
-                        child.as_widget_mut().layout(renderer, &child_limits);
+                    let layout = item_proxy.layout(i, &child_limits);
                     let size = layout.size();
                     nodes[i] = layout;
                     size

@@ -99,6 +99,44 @@ impl<'a, Message, Renderer> Default for Column<'a, Message, Renderer> {
     }
 }
 
+struct ColumnItemProxy<'a, 'rend, 'row, Message, Renderer>
+where
+    Renderer: crate::Renderer,
+{
+    renderer: &'rend Renderer,
+    row: &'row mut Column<'a, Message, Renderer>,
+}
+
+impl<'a, 'rend, 'row, Message, Renderer> layout::flex::ItemProxy<Renderer>
+    for ColumnItemProxy<'a, 'rend, 'row, Message, Renderer>
+where
+    Renderer: crate::Renderer,
+{
+    fn width(&mut self, item_index: usize) -> Length {
+        self.row.children[item_index].as_widget().width()
+    }
+
+    fn height(&mut self, item_index: usize) -> Length {
+        self.row.children[item_index].as_widget().height()
+    }
+
+    fn measure(&mut self, item_index: usize, limits: &layout::Limits) -> Size {
+        self.row.children[item_index]
+            .as_widget_mut()
+            .measure(self.renderer, limits)
+    }
+
+    fn layout(
+        &mut self,
+        item_index: usize,
+        limits: &layout::Limits,
+    ) -> layout::Node {
+        self.row.children[item_index]
+            .as_widget_mut()
+            .layout(self.renderer, limits)
+    }
+}
+
 impl<'a, Message, Renderer> Widget<Message, Renderer>
     for Column<'a, Message, Renderer>
 where
@@ -125,19 +163,25 @@ where
         renderer: &Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
-        let limits = limits
-            .max_width(self.max_width)
-            .width(self.width)
-            .height(self.height);
+        let limits = limits.width(self.width).height(self.height);
+
+        let padding = self.padding;
+        let spacing = self.spacing;
+        let align_items = self.align_items;
+        let item_count = self.children.len();
+        let item_proxy = ColumnItemProxy {
+            renderer,
+            row: self,
+        };
 
         layout::flex::resolve(
             layout::flex::Axis::Vertical,
-            renderer,
             &limits,
-            self.padding,
-            self.spacing,
-            self.align_items,
-            &mut self.children,
+            padding,
+            spacing,
+            align_items,
+            item_count,
+            item_proxy,
             layout::flex::LayoutMode::PerformLayout,
         )
     }
@@ -147,19 +191,25 @@ where
         renderer: &Renderer,
         limits: &layout::Limits,
     ) -> Size {
-        let limits = limits
-            .max_width(self.max_width)
-            .width(self.width)
-            .height(self.height);
+        let limits = limits.width(self.width).height(self.height);
+
+        let padding = self.padding;
+        let spacing = self.spacing;
+        let align_items = self.align_items;
+        let item_count = self.children.len();
+        let item_proxy = ColumnItemProxy {
+            renderer,
+            row: self,
+        };
 
         layout::flex::resolve(
             layout::flex::Axis::Vertical,
-            renderer,
             &limits,
-            self.padding,
-            self.spacing as f32,
-            self.align_items,
-            &mut self.children,
+            padding,
+            spacing,
+            align_items,
+            item_count,
+            item_proxy,
             layout::flex::LayoutMode::MeasureSize,
         )
         .size()
