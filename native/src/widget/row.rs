@@ -19,6 +19,7 @@ pub struct Row<'a, Message, Renderer> {
     height: Length,
     align_items: Alignment,
     children: Vec<Element<'a, Message, Renderer>>,
+    children_size_cache: Vec<Option<Size>>,
 }
 
 impl<'a, Message, Renderer> Row<'a, Message, Renderer> {
@@ -31,6 +32,7 @@ impl<'a, Message, Renderer> Row<'a, Message, Renderer> {
     pub fn with_children(
         children: Vec<Element<'a, Message, Renderer>>,
     ) -> Self {
+        let child_count = children.len();
         Row {
             spacing: 0.0,
             padding: Padding::ZERO,
@@ -38,6 +40,7 @@ impl<'a, Message, Renderer> Row<'a, Message, Renderer> {
             height: Length::Shrink,
             align_items: Alignment::Start,
             children,
+            children_size_cache: vec![None; child_count],
         }
     }
 
@@ -113,9 +116,16 @@ where
     }
 
     fn measure(&mut self, item_index: usize, limits: &layout::Limits) -> Size {
-        self.row.children[item_index]
-            .as_widget_mut()
-            .measure(self.renderer, limits)
+        match self.row.children_size_cache[item_index] {
+            Some(size) => size,
+            None => {
+                let size = self.row.children[item_index]
+                    .as_widget_mut()
+                    .measure(self.renderer, limits);
+                self.row.children_size_cache[item_index] = Some(size);
+                size
+            }
+        }
     }
 
     fn layout(

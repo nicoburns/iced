@@ -20,6 +20,7 @@ pub struct Column<'a, Message, Renderer> {
     max_width: f32,
     align_items: Alignment,
     children: Vec<Element<'a, Message, Renderer>>,
+    children_size_cache: Vec<Option<Size>>,
 }
 
 impl<'a, Message, Renderer> Column<'a, Message, Renderer> {
@@ -32,6 +33,7 @@ impl<'a, Message, Renderer> Column<'a, Message, Renderer> {
     pub fn with_children(
         children: Vec<Element<'a, Message, Renderer>>,
     ) -> Self {
+        let child_count = children.len();
         Column {
             spacing: 0.0,
             padding: Padding::ZERO,
@@ -40,6 +42,7 @@ impl<'a, Message, Renderer> Column<'a, Message, Renderer> {
             max_width: f32::INFINITY,
             align_items: Alignment::Start,
             children,
+            children_size_cache: vec![None; child_count],
         }
     }
 
@@ -99,31 +102,38 @@ impl<'a, Message, Renderer> Default for Column<'a, Message, Renderer> {
     }
 }
 
-struct ColumnItemProxy<'a, 'rend, 'row, Message, Renderer>
+struct ColumnItemProxy<'a, 'rend, 'column, Message, Renderer>
 where
     Renderer: crate::Renderer,
 {
     renderer: &'rend Renderer,
-    row: &'row mut Column<'a, Message, Renderer>,
+    column: &'column mut Column<'a, Message, Renderer>,
 }
 
-impl<'a, 'rend, 'row, Message, Renderer> layout::flex::ItemProxy<Renderer>
-    for ColumnItemProxy<'a, 'rend, 'row, Message, Renderer>
+impl<'a, 'rend, 'column, Message, Renderer> layout::flex::ItemProxy<Renderer>
+    for ColumnItemProxy<'a, 'rend, 'column, Message, Renderer>
 where
     Renderer: crate::Renderer,
 {
     fn width(&mut self, item_index: usize) -> Length {
-        self.row.children[item_index].as_widget().width()
+        self.column.children[item_index].as_widget().width()
     }
 
     fn height(&mut self, item_index: usize) -> Length {
-        self.row.children[item_index].as_widget().height()
+        self.column.children[item_index].as_widget().height()
     }
 
     fn measure(&mut self, item_index: usize, limits: &layout::Limits) -> Size {
-        self.row.children[item_index]
-            .as_widget_mut()
-            .measure(self.renderer, limits)
+        match self.column.children_size_cache[item_index] {
+            Some(size) => size,
+            None => {
+                let size = self.column.children[item_index]
+                    .as_widget_mut()
+                    .measure(self.renderer, limits);
+                self.column.children_size_cache[item_index] = Some(size);
+                size
+            }
+        }
     }
 
     fn layout(
@@ -131,7 +141,7 @@ where
         item_index: usize,
         limits: &layout::Limits,
     ) -> layout::Node {
-        self.row.children[item_index]
+        self.column.children[item_index]
             .as_widget_mut()
             .layout(self.renderer, limits)
     }
@@ -171,7 +181,7 @@ where
         let item_count = self.children.len();
         let item_proxy = ColumnItemProxy {
             renderer,
-            row: self,
+            column: self,
         };
 
         layout::flex::resolve(
@@ -199,7 +209,7 @@ where
         let item_count = self.children.len();
         let item_proxy = ColumnItemProxy {
             renderer,
-            row: self,
+            column: self,
         };
 
         layout::flex::resolve(
