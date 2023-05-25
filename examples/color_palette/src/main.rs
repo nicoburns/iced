@@ -1,8 +1,8 @@
 use iced::widget::canvas::{self, Canvas, Cursor, Frame, Geometry, Path};
 use iced::widget::{column, row, text, Slider};
 use iced::{
-    alignment, Alignment, Color, Element, Length, Point, Rectangle, Sandbox,
-    Settings, Size, Vector,
+    alignment, Alignment, Color, Element, Length, Point, Rectangle, Renderer,
+    Sandbox, Settings, Size, Vector,
 };
 use palette::{self, convert::FromColor, Hsl, Srgb};
 use std::marker::PhantomData;
@@ -243,11 +243,12 @@ impl<Message> canvas::Program<Message> for Theme {
     fn draw(
         &self,
         _state: &Self::State,
+        renderer: &Renderer,
         _theme: &iced::Theme,
         bounds: Rectangle,
         _cursor: Cursor,
     ) -> Vec<Geometry> {
-        let theme = self.canvas_cache.draw(bounds.size(), |frame| {
+        let theme = self.canvas_cache.draw(renderer, bounds.size(), |frame| {
             self.draw(frame);
         });
 
@@ -301,11 +302,11 @@ impl<C: ColorSpace + Copy> ColorPicker<C> {
         }
 
         row![
-            text(C::LABEL).width(Length::Units(50)),
+            text(C::LABEL).width(50),
             slider(cr1, c1, move |v| C::new(v, c2, c3)),
             slider(cr2, c2, move |v| C::new(c1, v, c3)),
             slider(cr3, c3, move |v| C::new(c1, c2, v)),
-            text(color.to_string()).width(Length::Units(185)).size(14),
+            text(color.to_string()).width(185).size(14),
         ]
         .spacing(10)
         .align_items(Alignment::Center)

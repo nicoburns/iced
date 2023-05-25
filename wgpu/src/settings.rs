@@ -1,10 +1,11 @@
 //! Configure a renderer.
-pub use crate::Antialiasing;
+use crate::core::Font;
+use crate::graphics::Antialiasing;
 
 /// The settings of a [`Backend`].
 ///
 /// [`Backend`]: crate::Backend
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Settings {
     /// The present mode of the [`Backend`].
     ///
@@ -14,21 +15,13 @@ pub struct Settings {
     /// The internal graphics backend to use.
     pub internal_backend: wgpu::Backends,
 
-    /// The bytes of the font that will be used by default.
-    ///
-    /// If `None` is provided, a default system font will be chosen.
-    pub default_font: Option<&'static [u8]>,
+    /// The default [`Font`] to use.
+    pub default_font: Font,
 
     /// The default size of text.
     ///
-    /// By default, it will be set to 20.
-    pub default_text_size: u16,
-
-    /// If enabled, spread text workload in multiple threads when multiple cores
-    /// are available.
-    ///
-    /// By default, it is disabled.
-    pub text_multithreading: bool,
+    /// By default, it will be set to `16.0`.
+    pub default_text_size: f32,
 
     /// The antialiasing strategy that will be used for triangle primitives.
     ///
@@ -53,7 +46,7 @@ impl Settings {
     ///     - `primary`
     pub fn from_env() -> Self {
         Settings {
-            internal_backend: backend_from_env()
+            internal_backend: wgpu::util::backend_bits_from_env()
                 .unwrap_or(wgpu::Backends::all()),
             ..Self::default()
         }
@@ -65,25 +58,9 @@ impl Default for Settings {
         Settings {
             present_mode: wgpu::PresentMode::AutoVsync,
             internal_backend: wgpu::Backends::all(),
-            default_font: None,
-            default_text_size: 20,
-            text_multithreading: false,
+            default_font: Font::default(),
+            default_text_size: 16.0,
             antialiasing: None,
         }
     }
-}
-
-fn backend_from_env() -> Option<wgpu::Backends> {
-    std::env::var("WGPU_BACKEND").ok().map(|backend| {
-        match backend.to_lowercase().as_str() {
-            "vulkan" => wgpu::Backends::VULKAN,
-            "metal" => wgpu::Backends::METAL,
-            "dx12" => wgpu::Backends::DX12,
-            "dx11" => wgpu::Backends::DX11,
-            "gl" => wgpu::Backends::GL,
-            "webgpu" => wgpu::Backends::BROWSER_WEBGPU,
-            "primary" => wgpu::Backends::PRIMARY,
-            other => panic!("Unknown backend: {other}"),
-        }
-    })
 }

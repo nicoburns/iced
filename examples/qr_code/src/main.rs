@@ -21,10 +21,7 @@ impl Sandbox for QRGenerator {
     type Message = Message;
 
     fn new() -> Self {
-        QRGenerator {
-            qr_code: qr_code::State::new("").ok(),
-            ..Self::default()
-        }
+        QRGenerator::default()
     }
 
     fn title(&self) -> String {
@@ -36,7 +33,12 @@ impl Sandbox for QRGenerator {
             Message::DataChanged(mut data) => {
                 data.truncate(100);
 
-                self.qr_code = qr_code::State::new(&data).ok();
+                self.qr_code = if data.is_empty() {
+                    None
+                } else {
+                    qr_code::State::new(&data).ok()
+                };
+
                 self.data = data;
             }
         }
@@ -47,16 +49,14 @@ impl Sandbox for QRGenerator {
             .size(70)
             .style(Color::from([0.5, 0.5, 0.5]));
 
-        let input = text_input(
-            "Type the data of your QR code here...",
-            &self.data,
-            Message::DataChanged,
-        )
-        .size(30)
-        .padding(15);
+        let input =
+            text_input("Type the data of your QR code here...", &self.data)
+                .on_input(Message::DataChanged)
+                .size(30)
+                .padding(15);
 
         let mut content = column![title, input]
-            .width(Length::Units(700))
+            .width(700)
             .spacing(20)
             .align_items(Alignment::Center);
 

@@ -1,4 +1,4 @@
-use crate::settings;
+use crate::graphics;
 
 #[derive(Debug)]
 pub struct Blit {
@@ -14,7 +14,7 @@ impl Blit {
     pub fn new(
         device: &wgpu::Device,
         format: wgpu::TextureFormat,
-        antialiasing: settings::Antialiasing,
+        antialiasing: graphics::Antialiasing,
     ) -> Blit {
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
@@ -75,7 +75,7 @@ impl Blit {
 
         let shader =
             device.create_shader_module(wgpu::ShaderModuleDescriptor {
-                label: Some("iced_wgpu::triangle::blit_shader"),
+                label: Some("iced_wgpu triangle blit_shader"),
                 source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(
                     include_str!("../shader/blit.wgsl"),
                 )),
@@ -223,6 +223,7 @@ impl Targets {
             dimension: wgpu::TextureDimension::D2,
             format,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
         });
 
         let resolve = device.create_texture(&wgpu::TextureDescriptor {
@@ -234,6 +235,7 @@ impl Targets {
             format,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT
                 | wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
         });
 
         let attachment =

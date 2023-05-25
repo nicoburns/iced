@@ -1,4 +1,6 @@
-use crate::window::{Icon, Position};
+use crate::window::{Icon, Level, Position};
+
+pub use iced_winit::settings::PlatformSpecific;
 
 /// The window settings of an application.
 #[derive(Debug, Clone)]
@@ -27,11 +29,14 @@ pub struct Settings {
     /// Whether the window should be transparent.
     pub transparent: bool,
 
-    /// Whether the window will always be on top of other windows.
-    pub always_on_top: bool,
+    /// The window [`Level`].
+    pub level: Level,
 
     /// The icon of the window.
     pub icon: Option<Icon>,
+
+    /// Platform specific settings.
+    pub platform_specific: PlatformSpecific,
 }
 
 impl Default for Settings {
@@ -45,8 +50,9 @@ impl Default for Settings {
             resizable: true,
             decorations: true,
             transparent: false,
-            always_on_top: false,
+            level: Level::default(),
             icon: None,
+            platform_specific: Default::default(),
         }
     }
 }
@@ -62,9 +68,9 @@ impl From<Settings> for iced_winit::settings::Window {
             resizable: settings.resizable,
             decorations: settings.decorations,
             transparent: settings.transparent,
-            always_on_top: settings.always_on_top,
+            level: settings.level,
             icon: settings.icon.map(Icon::into),
-            platform_specific: Default::default(),
+            platform_specific: settings.platform_specific,
         }
     }
 }
